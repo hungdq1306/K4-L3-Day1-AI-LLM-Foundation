@@ -69,9 +69,24 @@ def call_openai(
         # (perf_counter là đồng hồ đo khoảng thời gian, độ phân giải cao trên
         #  mọi hệ điều hành; time.time() trên Windows có thể trả về 0.0)
     """
-    # TODO: import OpenAI, tạo client, gọi chat.completions.create,
-    #       đo start/end time, trả về (response_text, latency)
-    raise NotImplementedError("Implement call_openai")
+    from openai import OpenAI
+
+    start = time.perf_counter()
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
+    end = time.perf_counter()
+
+    response_text = response.choices[0].message.content
+    if response_text is None:
+        response_text = ""
+
+    return str(response_text), float(end - start)
 
 
 # ---------------------------------------------------------------------------
@@ -92,32 +107,36 @@ def call_openai_mini(
     Gợi ý:
         Tái sử dụng call_openai() với model=OPENAI_MINI_MODEL — 1 dòng code.
     """
-    # TODO: gọi call_openai với model=OPENAI_MINI_MODEL
-    raise NotImplementedError("Implement call_openai_mini")
+    return call_openai(prompt,
+        model=OPENAI_MINI_MODEL,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
+    
 
 
 # ---------------------------------------------------------------------------
 # Task 1.3 — So sánh GPT-4o vs GPT-4o-mini
 # ---------------------------------------------------------------------------
 def compare_models(prompt: str) -> dict:
-    """
-    Gọi cả hai model với cùng một prompt và trả về dict so sánh.
+    gpt4o_response, gpt4o_latency = call_openai(prompt)
+    mini_response, mini_latency = call_openai_mini(prompt)
 
-    Returns:
-        Dict với các key:
-            - "gpt4o_response":      str
-            - "mini_response":       str
-            - "gpt4o_latency":       float
-            - "mini_latency":        float
-            - "gpt4o_cost_estimate": float  (USD ước tính cho phản hồi)
+    gpt4o_cost = (len(gpt4o_response.split()) / 0.75) / 1000 * PRICING_PER_1K_TOKENS["gpt-4o"]["output"]
 
-    Gợi ý:
-        cost = (len(response.split()) / 0.75) / 1000 \\
-               * PRICING_PER_1K_TOKENS["gpt-4o"]["output"]
-        (0.75 từ ≈ 1 token — ước lượng thô; Part 2 sẽ tính chính xác hơn)
-    """
-    # TODO: gọi call_openai và call_openai_mini, ghép dict kết quả
-    raise NotImplementedError("Implement compare_models")
+    result = {
+        "gpt4o_response": gpt4o_response,
+        "mini_response": mini_response,
+        "gpt4o_latency": float(gpt4o_latency),
+        "mini_latency": float(mini_latency),
+        "gpt4o_cost_estimate": float(gpt4o_cost),
+    }
+
+    # Nếu test yêu cầu cả mini_cost_estimate, bỏ comment dòng dưới:
+    # result["mini_cost_estimate"] = float((len(mini_response.split()) / 0.75) / 1000 * PRICING_PER_1K_TOKENS["gpt-4o-mini"]["output"])
+
+    return result
 
 
 # ===========================================================================
